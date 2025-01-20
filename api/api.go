@@ -1,56 +1,90 @@
 package api
 
 import (
-	"encoding/json"
-	"keystone/api/prep"
+	"errors"
+	"keystra/api/endpoint"
+	"keystra/api/middleware"
+	"keystra/api/types"
+	"keystra/storage/sqlite"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
-const PORT = ":4000" //TODO: port as environment variable
+const (
+	port          = ":4000"
+	database_name = "keystra.db"
+)
 
-func home(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode("Welcome to keystone project")
+type KeystraServer struct {
+	keystraAPI *types.KeystraAPI
 }
 
-func test(w http.ResponseWriter, r *http.Request) {
-	res := prep.RemoveKAdjacent("deeedbbcccbdaa", 3)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	json.NewEncoder(w).Encode(res)
+type API interface {
+	Close() error
+	Start() error
 }
 
-func setup(router *chi.Mux) {
-	router.Use(middleware.Heartbeat("/ping"))
-	router.Use(middleware.RequestID)
-	router.Use(middleware.RealIP)
-	router.Use(middleware.Logger)
-	router.Use(middleware.Recoverer)
-
-	router.Get("/", home)
-	router.Get("/test", test)
-}
-
-func Start() {
-	router := chi.NewRouter()
-
-	setup(router)
-
-	srv := http.Server{
-		Addr:     PORT,
-		Handler:  router,
-		ErrorLog: log.Default(),
-	}
-
-	log.Println("starting server to listen on port:", PORT)
-	err := srv.ListenAndServe()
+func NewApi() (*KeystraServer, error) {
+	database, err := sqlite.Connect(database_name)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
+
+	router := chi.NewRouter()
+	srv := &http.Server{
+		Addr:         port,
+		Handler:      router,
+		ErrorLog:     log.Default(),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	router.Use(middleware.Default(database)...)
+
+	kAPI := &types.KeystraAPI{
+		Router:  router,
+		Storage: database,
+		Server:  srv,
+	}
+
+	endpoint.RegisterRoutes(kAPI)
+
+	return &KeystraServer{keystraAPI: kAPI}, nil
+}
+
+func (ks *KeystraServer) Close() error {
+	var err error
+
+	log.Println("Closing storage")
+	err = ks.keystraAPI.Storage.Close()
+
+	if err != nil {
+		return errors.New("error closing database: " + err.Error())
+	}
+
+	log.Println("Closing server")
+	err = ks.keystraAPI.Server.Close()
+
+	if err != nil {
+		return errors.New("error shutting down server: " + err.Error())
+	}
+
+	return nil
+}
+
+func (ks *KeystraServer) Start() error {
+	log.Println("starting server to listen on port:", port)
+
+	err := ks.keystraAPI.Server.ListenAndServe()
+
+	if err != nil && err != http.ErrServerClosed {
+		return err
+	}
+
+	return nil
 }
