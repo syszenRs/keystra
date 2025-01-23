@@ -27,3 +27,21 @@ Start the server
 ```bash
   air
 ```
+
+### Deployment in railway (only tested this one until now)
+
+Need to setup custom command
+We need to instal gcc because of sqlite library being used
+
+```bash
+  apt-get update && apt-get install -y gcc && go build ./cmd/main.go
+```
+
+Custom start command
+
+```bash
+  ./main
+```
+
+Environment Variables
+`CC = gcc`, `CGO_ENABLED = 1`
