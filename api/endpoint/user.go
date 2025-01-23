@@ -2,7 +2,7 @@ package endpoint
 
 import (
 	"encoding/json"
-	"keystra/service"
+	"keystra/internal/service"
 	"net/http"
 	"strconv"
 

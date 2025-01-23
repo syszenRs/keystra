@@ -9,6 +9,33 @@ import (
 )
 
 func main() {
+	args := os.Args
+	log.Printf("Total args::%d:::%v", len(args), args)
+
+	var apiStopFn func() error
+
+	if len(args) < 2 {
+		log.Println("API START")
+		apiStopFn = startAPI()
+	}
+
+	log.Println("MORE")
+
+	// Create a channel to listen for stop signals or manual "stop" commands
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	<-stop
+
+	log.Println("Shutting down...")
+
+	if err := apiStopFn(); err != nil {
+		log.Fatalf("Error closing API: %v", err)
+	}
+
+}
+
+func startAPI() func() error {
 	log.Println("starting keystra project..")
 	var err error
 
@@ -24,13 +51,5 @@ func main() {
 		}
 	}()
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
-
-	log.Println("Shutting down...")
-
-	if err = keystra.Close(); err != nil {
-		log.Fatalf("Error closing API: %v", err)
-	}
+	return keystra.Close
 }

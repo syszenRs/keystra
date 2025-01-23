@@ -3,7 +3,7 @@ package endpoint
 import (
 	"encoding/json"
 	"keystra/api/types"
-	"keystra/service"
+	"keystra/internal/service"
 	"net/http"
 )
 

@@ -5,7 +5,7 @@ import (
 	"keystra/api/endpoint"
 	"keystra/api/middleware"
 	"keystra/api/types"
-	"keystra/storage/sqlite"
+	"keystra/internal/storage/sqlite"
 	"log"
 	"net/http"
 	"time"
@@ -15,7 +15,7 @@ import (
 
 const (
 	port          = ":4000"
-	database_name = "keystra.db"
+	database_name = "keystra_sqlite.db"
 )
 
 type KeystraServer struct {
